@@ -4,10 +4,19 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:instagram_clone/resources/storage_method.dart';
+import 'package:instagram_clone/model/user.dart' as model;
 
 class AuthMethods {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<model.User> getUserDetails() async {
+    User currentUser = _auth.currentUser!;
+    DocumentSnapshot snap =
+        await _firestore.collection('userscollection').doc(currentUser.uid).get();
+    return model.User.fromSnap(snap);
+  }
+
   //sign up
   Future<String> signUpuser({
     required String email,
@@ -28,18 +37,39 @@ class AuthMethods {
             email: email, password: password);
         //add user to database
         print(cred.user!.uid);
-        String photoUrl = await StorageMethods().uploadImageToStorage('profilepic', file, false);
-        await _firestore.collection('userscollection').doc(cred.user!.uid).set({
-          'username': username,
-          'uid': cred.user!.uid,
-          'email': email,
-          'password': password,
-          'bio': bio,
-          'followers': [],
-          'followings': [],
-         'photoUrl': photoUrl
-        });
+        String photoUrl = await StorageMethods()
+            .uploadImageToStorage('profilepic', file, false);
+        model.User user = model.User(
+          username: username,
+          uid: cred.user!.uid,
+          email: email,
+          bio: bio,
+          
+          followers: [],
+          followings: [],
+          photoUrl: photoUrl,
+        );
+        await _firestore.collection('userscollection').doc(cred.user!.uid).set(
+              user.toJson(),
+            );
         res = "success";
+      }
+    } catch (err) {
+      res = err.toString();
+    }
+    return res;
+  }
+
+  Future<String> loginUser(
+      {required String email, required String password}) async {
+    String res = "Some error occurred";
+    try {
+      if (email.isNotEmpty || password.isNotEmpty) {
+        await _auth.signInWithEmailAndPassword(
+            email: email, password: password);
+        res = "success";
+      } else {
+        res = "Please enter all the fields";
       }
     } catch (err) {
       res = err.toString();
